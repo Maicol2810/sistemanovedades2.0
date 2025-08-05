@@ -39,11 +39,20 @@ interface CatalogItem {
   nombre: string;
 }
 
+interface Funcionario {
+  id: string;
+  cedula: string;
+  nombre: string;
+  cargo: string;
+  dependencia: string;
+}
+
 const Novedades: React.FC = () => {
   const { user, hasPermission } = useAuth();
   const [novedades, setNovedades] = useState<Novedad[]>([]);
   const [dependencias, setDependencias] = useState<CatalogItem[]>([]);
   const [tiposNovedad, setTiposNovedad] = useState<CatalogItem[]>([]);
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingNovedad, setEditingNovedad] = useState<Novedad | null>(null);
@@ -72,24 +81,44 @@ const Novedades: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [novedadesRes, dependenciasRes, tiposRes] = await Promise.all([
+      const [novedadesRes, dependenciasRes, tiposRes, funcionariosRes] = await Promise.all([
         supabase.from('novedades').select('*').order('created_at', { ascending: false }),
         supabase.from('dependencias').select('*').eq('activo', true).order('nombre'),
-        supabase.from('tipos_novedad').select('*').eq('activo', true).order('nombre')
+        supabase.from('tipos_novedad').select('*').eq('activo', true).order('nombre'),
+        supabase.from('funcionarios').select('*').eq('activo', true).order('nombre')
       ]);
 
       if (novedadesRes.error) throw novedadesRes.error;
       if (dependenciasRes.error) throw dependenciasRes.error;
       if (tiposRes.error) throw tiposRes.error;
+      if (funcionariosRes.error) throw funcionariosRes.error;
 
       setNovedades(novedadesRes.data || []);
       setDependencias(dependenciasRes.data || []);
       setTiposNovedad(tiposRes.data || []);
+      setFuncionarios(funcionariosRes.data || []);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error al cargar los datos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCedulaChange = (cedula: string) => {
+    const funcionario = funcionarios.find(f => f.cedula === cedula);
+    if (funcionario) {
+      setFormData({
+        ...formData,
+        cedula,
+        nombre: funcionario.nombre,
+        dependencia: funcionario.dependencia
+      });
+    } else {
+      setFormData({
+        ...formData,
+        cedula
+      });
     }
   };
 
@@ -471,8 +500,9 @@ const Novedades: React.FC = () => {
                     <input
                       type="text"
                       value={formData.cedula}
-                      onChange={(e) => setFormData({ ...formData, cedula: e.target.value })}
+                      onChange={(e) => handleCedulaChange(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Ingrese número de cédula"
                       required
                     />
                   </div>
@@ -486,6 +516,7 @@ const Novedades: React.FC = () => {
                       value={formData.nombre}
                       onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                       placeholder="Se autocompleta con la cédula"
                       required
                     />
                   </div>
@@ -510,19 +541,14 @@ const Novedades: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Dependencia *
                     </label>
-                    <select
+                    <input
+                      type="text"
                       value={formData.dependencia}
                       onChange={(e) => setFormData({ ...formData, dependencia: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Se autocompleta con la cédula"
                       required
-                    >
-                      <option value="">Seleccionar dependencia</option>
-                      {dependencias.map(dependencia => (
-                        <option key={dependencia.id} value={dependencia.nombre}>
-                          {dependencia.nombre}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   
                   <div>

@@ -20,6 +20,7 @@ import * as XLSX from 'xlsx';
 interface Enfermeria {
   id: string;
   cedula: string;
+  cedula: string;
   nombre: string;
   cargo: string;
   dependencia: string;
@@ -27,9 +28,17 @@ interface Enfermeria {
   antecedentes_salud: string;
   salida?: string;
   observaciones: string | null;
+  fecha?: string;
   created_at: string;
   created_by: string;
-  fecha?: string;
+}
+
+interface Funcionario {
+  id: string;
+  cedula: string;
+  nombre: string;
+  cargo: string;
+  dependencia: string;
 }
 
 interface CatalogItem {
@@ -44,6 +53,7 @@ const Enfermeria: React.FC = () => {
   const [dependencias, setDependencias] = useState<CatalogItem[]>([]);
   const [sintomas, setSintomas] = useState<CatalogItem[]>([]);
   const [antecedentesSalud, setAntecedentesSalud] = useState<CatalogItem[]>([]);
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingRecord, setEditingRecord] = useState<Enfermeria | null>(null);
@@ -51,6 +61,7 @@ const Enfermeria: React.FC = () => {
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [formData, setFormData] = useState({
+    cedula: '',
     cedula: '',
     nombre: '',
     cargo: '',
@@ -69,12 +80,13 @@ const Enfermeria: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [enfermeriaRes, cargosRes, dependenciasRes, sintomasRes, antecedentesRes] = await Promise.all([
+      const [enfermeriaRes, cargosRes, dependenciasRes, sintomasRes, antecedentesRes, funcionariosRes] = await Promise.all([
         supabase.from('enfermeria').select('*').order('created_at', { ascending: false }),
         supabase.from('cargos').select('*').eq('activo', true).order('nombre'),
         supabase.from('dependencias').select('*').eq('activo', true).order('nombre'),
         supabase.from('sintomas').select('*').eq('activo', true).order('nombre'),
-        supabase.from('antecedentes_salud').select('*').eq('activo', true).order('nombre')
+        supabase.from('antecedentes_salud').select('*').eq('activo', true).order('nombre'),
+        supabase.from('funcionarios').select('*').eq('activo', true).order('nombre')
       ]);
 
       if (enfermeriaRes.error) throw enfermeriaRes.error;
@@ -82,17 +94,37 @@ const Enfermeria: React.FC = () => {
       if (dependenciasRes.error) throw dependenciasRes.error;
       if (sintomasRes.error) throw sintomasRes.error;
       if (antecedentesRes.error) throw antecedentesRes.error;
+      if (funcionariosRes.error) throw funcionariosRes.error;
 
       setEnfermeriaRecords(enfermeriaRes.data || []);
       setCargos(cargosRes.data || []);
       setDependencias(dependenciasRes.data || []);
       setSintomas(sintomasRes.data || []);
       setAntecedentesSalud(antecedentesRes.data || []);
+      setFuncionarios(funcionariosRes.data || []);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error al cargar los datos');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleCedulaChange = (cedula: string) => {
+    const funcionario = funcionarios.find(f => f.cedula === cedula);
+    if (funcionario) {
+      setFormData({
+        ...formData,
+        cedula,
+        nombre: funcionario.nombre,
+        cargo: funcionario.cargo,
+        dependencia: funcionario.dependencia
+      });
+    } else {
+      setFormData({
+        ...formData,
+        cedula
+      });
     }
   };
 
@@ -131,6 +163,7 @@ const Enfermeria: React.FC = () => {
 
     setEditingRecord(record);
     setFormData({
+      cedula: record.cedula || '',
       cedula: record.cedula,
       nombre: record.nombre,
       cargo: record.cargo,
@@ -169,6 +202,7 @@ const Enfermeria: React.FC = () => {
 
   const resetForm = () => {
     setFormData({
+      cedula: '',
       cedula: '',
       nombre: '',
       cargo: '',
@@ -443,6 +477,20 @@ const Enfermeria: React.FC = () => {
                     <input
                       type="text"
                       value={formData.cedula}
+                      onChange={(e) => handleCedulaChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Ingrese número de cédula"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Número de Cédula *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.cedula}
                       onChange={(e) => setFormData({ ...formData, cedula: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                       required
@@ -458,6 +506,7 @@ const Enfermeria: React.FC = () => {
                       value={formData.nombre}
                       onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Se autocompleta con la cédula"
                       required
                     />
                   </div>
@@ -466,38 +515,28 @@ const Enfermeria: React.FC = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Cargo *
                     </label>
-                    <select
+                    <input
+                      type="text"
                       value={formData.cargo}
                       onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Se autocompleta con la cédula"
                       required
-                    >
-                      <option value="">Seleccionar cargo</option>
-                      {cargos.map(cargo => (
-                        <option key={cargo.id} value={cargo.nombre}>
-                          {cargo.nombre}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
                       Dependencia *
                     </label>
-                    <select
+                    <input
+                      type="text"
                       value={formData.dependencia}
                       onChange={(e) => setFormData({ ...formData, dependencia: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Se autocompleta con la cédula"
                       required
-                    >
-                      <option value="">Seleccionar dependencia</option>
-                      {dependencias.map(dependencia => (
-                        <option key={dependencia.id} value={dependencia.nombre}>
-                          {dependencia.nombre}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   
                   <div>

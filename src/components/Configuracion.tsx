@@ -30,6 +30,10 @@ const Configuracion: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [formData, setFormData] = useState({
     nombre: '',
+    codigo: '',
+    cedula: '',
+    cargo: '',
+    dependencia: '',
     activo: true
   });
 
@@ -40,7 +44,8 @@ const Configuracion: React.FC = () => {
     { key: 'cargos', label: 'Cargos', table: 'cargos' },
     { key: 'dependencias', label: 'Dependencias', table: 'dependencias' },
     { key: 'sintomas', label: 'Síntomas', table: 'sintomas' },
-    { key: 'antecedentes_salud', label: 'Antecedentes de Salud', table: 'antecedentes_salud' }
+    { key: 'antecedentes_salud', label: 'Antecedentes de Salud', table: 'antecedentes_salud' },
+    { key: 'funcionarios', label: 'Funcionarios', table: 'funcionarios' }
   ];
 
   const currentCatalog = catalogs.find(c => c.key === activeTab);
@@ -82,10 +87,36 @@ const Configuracion: React.FC = () => {
     if (!currentCatalog) return;
 
     try {
+      let dataToSave = { ...formData };
+      
+      // Para funcionarios, incluir campos adicionales
+      if (currentCatalog.key === 'funcionarios') {
+        dataToSave = {
+          cedula: formData.cedula,
+          nombre: formData.nombre,
+          cargo: formData.cargo,
+          dependencia: formData.dependencia,
+          activo: formData.activo
+        };
+      } else if (currentCatalog.key === 'diagnosticos') {
+        // Para diagnósticos, incluir código
+        dataToSave = {
+          codigo: formData.codigo,
+          nombre: formData.nombre,
+          activo: formData.activo
+        };
+      } else {
+        // Para otros catálogos, solo nombre y activo
+        dataToSave = {
+          nombre: formData.nombre,
+          activo: formData.activo
+        };
+      }
+
       if (editingItem) {
         const { error } = await supabase
           .from(currentCatalog.table)
-          .update(formData)
+          .update(dataToSave)
           .eq('id', editingItem.id);
 
         if (error) throw error;
@@ -93,7 +124,7 @@ const Configuracion: React.FC = () => {
       } else {
         const { error } = await supabase
           .from(currentCatalog.table)
-          .insert([formData]);
+          .insert([dataToSave]);
 
         if (error) throw error;
         toast.success('Elemento creado exitosamente');
@@ -116,10 +147,35 @@ const Configuracion: React.FC = () => {
     }
 
     setEditingItem(item);
-    setFormData({
-      nombre: item.nombre,
-      activo: item.activo
-    });
+    
+    if (currentCatalog?.key === 'funcionarios') {
+      setFormData({
+        nombre: (item as any).nombre || '',
+        codigo: '',
+        cedula: (item as any).cedula || '',
+        cargo: (item as any).cargo || '',
+        dependencia: (item as any).dependencia || '',
+        activo: item.activo
+      });
+    } else if (currentCatalog?.key === 'diagnosticos') {
+      setFormData({
+        nombre: item.nombre,
+        codigo: (item as any).codigo || '',
+        cedula: '',
+        cargo: '',
+        dependencia: '',
+        activo: item.activo
+      });
+    } else {
+      setFormData({
+        nombre: item.nombre,
+        codigo: '',
+        cedula: '',
+        cargo: '',
+        dependencia: '',
+        activo: item.activo
+      });
+    }
     setShowModal(true);
   };
 
@@ -174,6 +230,10 @@ const Configuracion: React.FC = () => {
   const resetForm = () => {
     setFormData({
       nombre: '',
+      codigo: '',
+      cedula: '',
+      cargo: '',
+      dependencia: '',
       activo: true
     });
   };
@@ -273,8 +333,18 @@ const Configuracion: React.FC = () => {
                     <Tag className="h-5 w-5 text-gray-400" />
                     <div>
                       <span className="text-sm font-medium text-gray-900">
-                        {item.nombre}
+                        {currentCatalog?.key === 'funcionarios' 
+                          ? `${(item as any).cedula} - ${item.nombre}`
+                          : currentCatalog?.key === 'diagnosticos' && (item as any).codigo
+                          ? `${(item as any).codigo} - ${item.nombre}`
+                          : item.nombre
+                        }
                       </span>
+                      {currentCatalog?.key === 'funcionarios' && (
+                        <div className="text-xs text-gray-500">
+                          {(item as any).cargo} - {(item as any).dependencia}
+                        </div>
+                      )}
                       <div className="text-xs text-gray-500">
                         Creado: {new Date(item.created_at).toLocaleDateString('es-ES')}
                       </div>
@@ -331,6 +401,79 @@ const Configuracion: React.FC = () => {
               </h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
+                {currentCatalog?.key === 'funcionarios' && (
+                  <>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Número de Cédula *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.cedula}
+                        onChange={(e) => setFormData({ ...formData, cedula: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Nombre Completo *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.nombre}
+                        onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Cargo *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.cargo}
+                        onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        required
+                      />
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Dependencia *
+                      </label>
+                      <input
+                        type="text"
+                        value={formData.dependencia}
+                        onChange={(e) => setFormData({ ...formData, dependencia: e.target.value })}
+                        className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        required
+                      />
+                    </div>
+                  </>
+                )}
+                
+                {currentCatalog?.key === 'diagnosticos' && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Código *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.codigo}
+                      onChange={(e) => setFormData({ ...formData, codigo: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Ej: A000"
+                      required
+                    />
+                  </div>
+                )}
+                
+                {currentCatalog?.key !== 'funcionarios' && (
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Nombre *
@@ -343,6 +486,7 @@ const Configuracion: React.FC = () => {
                     required
                   />
                 </div>
+                )}
                 
                 <div>
                   <label className="flex items-center space-x-2">

@@ -14,6 +14,7 @@ interface Incapacidad {
   dias_incapacidad: number;
   diagnostico: string;
   tipo_incapacidad: string;
+  prorroga: string;
   created_at: string;
   created_by: string;
 }
@@ -21,6 +22,15 @@ interface Incapacidad {
 interface CatalogItem {
   id: string;
   nombre: string;
+  codigo?: string;
+}
+
+interface Funcionario {
+  id: string;
+  cedula: string;
+  nombre: string;
+  cargo: string;
+  dependencia: string;
 }
 
 const Incapacidades: React.FC = () => {
@@ -28,6 +38,7 @@ const Incapacidades: React.FC = () => {
   const [incapacidades, setIncapacidades] = useState<Incapacidad[]>([]);
   const [diagnosticos, setDiagnosticos] = useState<CatalogItem[]>([]);
   const [tiposIncapacidad, setTiposIncapacidad] = useState<CatalogItem[]>([]);
+  const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [editingIncapacidad, setEditingIncapacidad] = useState<Incapacidad | null>(null);
@@ -39,8 +50,10 @@ const Incapacidades: React.FC = () => {
     nombre_completo: '',
     fecha_inicio: '',
     fecha_fin: '',
+    codigo_diagnostico: '',
     diagnostico: '',
-    tipo_incapacidad: ''
+    tipo_incapacidad: '',
+    prorroga: 'No'
   });
 
   useEffect(() => {
@@ -50,19 +63,22 @@ const Incapacidades: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [incapacidadesRes, diagnosticosRes, tiposRes] = await Promise.all([
+      const [incapacidadesRes, diagnosticosRes, tiposRes, funcionariosRes] = await Promise.all([
         supabase.from('incapacidades').select('*').order('created_at', { ascending: false }),
-        supabase.from('diagnosticos').select('*').eq('activo', true).order('nombre'),
-        supabase.from('tipos_incapacidad').select('*').eq('activo', true).order('nombre')
+        supabase.from('diagnosticos').select('*').eq('activo', true).order('codigo'),
+        supabase.from('tipos_incapacidad').select('*').eq('activo', true).order('nombre'),
+        supabase.from('funcionarios').select('*').eq('activo', true).order('nombre')
       ]);
 
       if (incapacidadesRes.error) throw incapacidadesRes.error;
       if (diagnosticosRes.error) throw diagnosticosRes.error;
       if (tiposRes.error) throw tiposRes.error;
+      if (funcionariosRes.error) throw funcionariosRes.error;
 
       setIncapacidades(incapacidadesRes.data || []);
       setDiagnosticos(diagnosticosRes.data || []);
       setTiposIncapacidad(tiposRes.data || []);
+      setFuncionarios(funcionariosRes.data || []);
     } catch (error) {
       console.error('Error loading data:', error);
       toast.error('Error al cargar los datos');
@@ -76,6 +92,31 @@ const Incapacidades: React.FC = () => {
     const fin = new Date(fechaFin);
     const diffTime = fin.getTime() - inicio.getTime();
     return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
+  };
+
+  const handleCodigoChange = (codigo: string) => {
+    const diagnostico = diagnosticos.find(d => d.codigo === codigo);
+    setFormData({
+      ...formData,
+      codigo_diagnostico: codigo,
+      diagnostico: diagnostico ? diagnostico.nombre : ''
+    });
+  };
+
+  const handleCedulaChange = (cedula: string) => {
+    const funcionario = funcionarios.find(f => f.cedula === cedula);
+    if (funcionario) {
+      setFormData({
+        ...formData,
+        numero_id: cedula,
+        nombre_completo: funcionario.nombre
+      });
+    } else {
+      setFormData({
+        ...formData,
+        numero_id: cedula
+      });
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -92,6 +133,7 @@ const Incapacidades: React.FC = () => {
       const incapacidadData = {
         ...formData,
         dias_incapacidad,
+        numero_id: formData.numero_id,
         created_by: user?.id || ''
       };
 
@@ -134,8 +176,10 @@ const Incapacidades: React.FC = () => {
       nombre_completo: incapacidad.nombre_completo,
       fecha_inicio: incapacidad.fecha_inicio,
       fecha_fin: incapacidad.fecha_fin,
+      codigo_diagnostico: '',
       diagnostico: incapacidad.diagnostico,
-      tipo_incapacidad: incapacidad.tipo_incapacidad
+      tipo_incapacidad: incapacidad.tipo_incapacidad,
+      prorroga: incapacidad.prorroga || 'No'
     });
     setShowModal(true);
   };
@@ -169,8 +213,10 @@ const Incapacidades: React.FC = () => {
       nombre_completo: '',
       fecha_inicio: '',
       fecha_fin: '',
+      codigo_diagnostico: '',
       diagnostico: '',
-      tipo_incapacidad: ''
+      tipo_incapacidad: '',
+      prorroga: 'No'
     });
   };
 
@@ -337,6 +383,9 @@ const Incapacidades: React.FC = () => {
                   Tipo
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Prórroga
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
                 </th>
               </tr>
@@ -371,6 +420,13 @@ const Incapacidades: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
                       {incapacidad.tipo_incapacidad}
+                    </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                      incapacidad.prorroga === 'Sí' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'
+                    }`}>
+                      {incapacidad.prorroga || 'No'}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -418,8 +474,9 @@ const Incapacidades: React.FC = () => {
                     <input
                       type="text"
                       value={formData.numero_id}
-                      onChange={(e) => setFormData({ ...formData, numero_id: e.target.value })}
+                      onChange={(e) => handleCedulaChange(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Ingrese número de cédula"
                       required
                     />
                   </div>
@@ -433,6 +490,7 @@ const Incapacidades: React.FC = () => {
                       value={formData.nombre_completo}
                       onChange={(e) => setFormData({ ...formData, nombre_completo: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Se autocompleta con la cédula"
                       required
                     />
                   </div>
@@ -465,21 +523,30 @@ const Incapacidades: React.FC = () => {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Código de Diagnóstico *
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.codigo_diagnostico}
+                      onChange={(e) => handleCodigoChange(e.target.value)}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Ej: A000"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
                       Diagnóstico *
                     </label>
-                    <select
+                    <input
+                      type="text"
                       value={formData.diagnostico}
                       onChange={(e) => setFormData({ ...formData, diagnostico: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      placeholder="Se autocompleta con el código"
                       required
-                    >
-                      <option value="">Seleccionar diagnóstico</option>
-                      {diagnosticos.map(diagnostico => (
-                        <option key={diagnostico.id} value={diagnostico.nombre}>
-                          {diagnostico.nombre}
-                        </option>
-                      ))}
-                    </select>
+                    />
                   </div>
                   
                   <div>
@@ -498,6 +565,21 @@ const Incapacidades: React.FC = () => {
                           {tipo.nombre}
                         </option>
                       ))}
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Prórroga *
+                    </label>
+                    <select
+                      value={formData.prorroga}
+                      onChange={(e) => setFormData({ ...formData, prorroga: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      required
+                    >
+                      <option value="No">No</option>
+                      <option value="Sí">Sí</option>
                     </select>
                   </div>
                 </div>
