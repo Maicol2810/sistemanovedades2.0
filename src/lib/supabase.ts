@@ -173,6 +173,8 @@ export type Database = {
           sintomas: string;
           antecedentes_salud: string;
           observaciones: string | null;
+          salida: string;
+          fecha: string;
           created_at: string;
           created_by: string;
         };
@@ -185,6 +187,8 @@ export type Database = {
           sintomas: string;
           antecedentes_salud: string;
           observaciones?: string | null;
+          salida?: string;
+          fecha?: string;
           created_at?: string;
           created_by: string;
         };
@@ -197,6 +201,52 @@ export type Database = {
           sintomas?: string;
           antecedentes_salud?: string;
           observaciones?: string | null;
+          salida?: string;
+          fecha?: string;
+          created_at?: string;
+          created_by?: string;
+        };
+      };
+      accidentes_trabajo: {
+        Row: {
+          id: string;
+          cedula: string;
+          nombre: string;
+          cargo: string;
+          dependencia: string;
+          tipo_at: string;
+          tipo_lesion: string;
+          parte_cuerpo_afectada: string;
+          fecha: string;
+          hora: string;
+          created_at: string;
+          created_by: string;
+        };
+        Insert: {
+          id?: string;
+          cedula: string;
+          nombre: string;
+          cargo: string;
+          dependencia: string;
+          tipo_at: string;
+          tipo_lesion: string;
+          parte_cuerpo_afectada: string;
+          fecha: string;
+          hora: string;
+          created_at?: string;
+          created_by: string;
+        };
+        Update: {
+          id?: string;
+          cedula?: string;
+          nombre?: string;
+          cargo?: string;
+          dependencia?: string;
+          tipo_at?: string;
+          tipo_lesion?: string;
+          parte_cuerpo_afectada?: string;
+          fecha?: string;
+          hora?: string;
           created_at?: string;
           created_by?: string;
         };

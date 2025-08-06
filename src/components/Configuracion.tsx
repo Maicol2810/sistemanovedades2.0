@@ -41,11 +41,12 @@ const Configuracion: React.FC = () => {
     { key: 'tipos_novedad', label: 'Tipos de Novedad', table: 'tipos_novedad' },
     { key: 'diagnosticos', label: 'Diagnósticos', table: 'diagnosticos' },
     { key: 'tipos_incapacidad', label: 'Tipos de Incapacidad', table: 'tipos_incapacidad' },
-    { key: 'cargos', label: 'Cargos', table: 'cargos' },
-    { key: 'dependencias', label: 'Dependencias', table: 'dependencias' },
     { key: 'sintomas', label: 'Síntomas', table: 'sintomas' },
     { key: 'antecedentes_salud', label: 'Antecedentes de Salud', table: 'antecedentes_salud' },
-    { key: 'funcionarios', label: 'Funcionarios', table: 'funcionarios' }
+    { key: 'funcionarios', label: 'Funcionarios', table: 'funcionarios' },
+    { key: 'tipos_at', label: 'Tipos de AT', table: 'tipos_at' },
+    { key: 'tipos_lesion', label: 'Tipos de Lesión', table: 'tipos_lesion' },
+    { key: 'partes_cuerpo', label: 'Partes del Cuerpo', table: 'partes_cuerpo' }
   ];
 
   const currentCatalog = catalogs.find(c => c.key === activeTab);

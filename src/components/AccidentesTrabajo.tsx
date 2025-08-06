@@ -1,20 +1,33 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { useAuth } from '../contexts/AuthContext';
-import { Plus, Search, Edit, Trash2, Download, Calendar, Filter, Heart } from 'lucide-react';
+import { 
+  Plus, 
+  Search, 
+  Edit, 
+  Trash2, 
+  Download,
+  User,
+  AlertTriangle,
+  Building,
+  Calendar,
+  Clock,
+  Filter
+} from 'lucide-react';
 import toast from 'react-hot-toast';
 import * as XLSX from 'xlsx';
 
-interface Incapacidad {
+interface AccidenteTrabajo {
   id: string;
-  numero_id: string;
-  nombre_completo: string;
-  fecha_inicio: string;
-  fecha_fin: string;
-  dias_incapacidad: number;
-  diagnostico: string;
-  tipo_incapacidad: string;
-  prorroga: string;
+  cedula: string;
+  nombre: string;
+  cargo: string;
+  dependencia: string;
+  tipo_at: string;
+  tipo_lesion: string;
+  parte_cuerpo_afectada: string;
+  fecha: string;
+  hora: string;
   created_at: string;
   created_by: string;
 }
@@ -22,7 +35,6 @@ interface Incapacidad {
 interface CatalogItem {
   id: string;
   nombre: string;
-  codigo?: string;
 }
 
 interface Funcionario {
@@ -33,27 +45,29 @@ interface Funcionario {
   dependencia: string;
 }
 
-const Incapacidades: React.FC = () => {
+const AccidentesTrabajo: React.FC = () => {
   const { user, hasPermission } = useAuth();
-  const [incapacidades, setIncapacidades] = useState<Incapacidad[]>([]);
-  const [diagnosticos, setDiagnosticos] = useState<CatalogItem[]>([]);
-  const [tiposIncapacidad, setTiposIncapacidad] = useState<CatalogItem[]>([]);
+  const [accidentes, setAccidentes] = useState<AccidenteTrabajo[]>([]);
+  const [tiposAT, setTiposAT] = useState<CatalogItem[]>([]);
+  const [tiposLesion, setTiposLesion] = useState<CatalogItem[]>([]);
+  const [partesCuerpo, setPartesCuerpo] = useState<CatalogItem[]>([]);
   const [funcionarios, setFuncionarios] = useState<Funcionario[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
-  const [editingIncapacidad, setEditingIncapacidad] = useState<Incapacidad | null>(null);
+  const [editingAccidente, setEditingAccidente] = useState<AccidenteTrabajo | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [formData, setFormData] = useState({
-    numero_id: '',
-    nombre_completo: '',
-    fecha_inicio: '',
-    fecha_fin: '',
-    codigo_diagnostico: '',
-    diagnostico: '',
-    tipo_incapacidad: '',
-    prorroga: 'No'
+    cedula: '',
+    nombre: '',
+    cargo: '',
+    dependencia: '',
+    tipo_at: '',
+    tipo_lesion: '',
+    parte_cuerpo_afectada: '',
+    fecha: '',
+    hora: ''
   });
 
   useEffect(() => {
@@ -63,21 +77,24 @@ const Incapacidades: React.FC = () => {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [incapacidadesRes, diagnosticosRes, tiposRes, funcionariosRes] = await Promise.all([
-        supabase.from('incapacidades').select('*').order('created_at', { ascending: false }),
-        supabase.from('diagnosticos').select('*').eq('activo', true).order('codigo'),
-        supabase.from('tipos_incapacidad').select('*').eq('activo', true).order('nombre'),
+      const [accidentesRes, tiposATRes, tiposLesionRes, partesCuerpoRes, funcionariosRes] = await Promise.all([
+        supabase.from('accidentes_trabajo').select('*').order('created_at', { ascending: false }),
+        supabase.from('tipos_at').select('*').eq('activo', true).order('nombre'),
+        supabase.from('tipos_lesion').select('*').eq('activo', true).order('nombre'),
+        supabase.from('partes_cuerpo').select('*').eq('activo', true).order('nombre'),
         supabase.from('funcionarios').select('*').eq('activo', true).order('nombre')
       ]);
 
-      if (incapacidadesRes.error) throw incapacidadesRes.error;
-      if (diagnosticosRes.error) throw diagnosticosRes.error;
-      if (tiposRes.error) throw tiposRes.error;
+      if (accidentesRes.error) throw accidentesRes.error;
+      if (tiposATRes.error) throw tiposATRes.error;
+      if (tiposLesionRes.error) throw tiposLesionRes.error;
+      if (partesCuerpoRes.error) throw partesCuerpoRes.error;
       if (funcionariosRes.error) throw funcionariosRes.error;
 
-      setIncapacidades(incapacidadesRes.data || []);
-      setDiagnosticos(diagnosticosRes.data || []);
-      setTiposIncapacidad(tiposRes.data || []);
+      setAccidentes(accidentesRes.data || []);
+      setTiposAT(tiposATRes.data || []);
+      setTiposLesion(tiposLesionRes.data || []);
+      setPartesCuerpo(partesCuerpoRes.data || []);
       setFuncionarios(funcionariosRes.data || []);
     } catch (error) {
       console.error('Error loading data:', error);
@@ -87,141 +104,120 @@ const Incapacidades: React.FC = () => {
     }
   };
 
-  const calculateDays = (fechaInicio: string, fechaFin: string): number => {
-    const inicio = new Date(fechaInicio);
-    const fin = new Date(fechaFin);
-    const diffTime = fin.getTime() - inicio.getTime();
-    return Math.max(0, Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1);
-  };
-
-  const handleCodigoChange = (codigo: string) => {
-    const diagnostico = diagnosticos.find(d => d.codigo === codigo);
-    setFormData({
-      ...formData,
-      codigo_diagnostico: codigo,
-      diagnostico: diagnostico ? diagnostico.nombre : ''
-    });
-  };
-
   const handleCedulaChange = (cedula: string) => {
     const funcionario = funcionarios.find(f => f.cedula === cedula);
     if (funcionario) {
       setFormData({
         ...formData,
-        numero_id: cedula,
-        nombre_completo: funcionario.nombre
+        cedula,
+        nombre: funcionario.nombre,
+        cargo: funcionario.cargo,
+        dependencia: funcionario.dependencia
       });
     } else {
       setFormData({
         ...formData,
-        numero_id: cedula
+        cedula
       });
     }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (!hasPermission('incapacidades', editingIncapacidad ? 'update' : 'create')) {
+    
+    if (!hasPermission('accidentes_trabajo', editingAccidente ? 'update' : 'create')) {
       toast.error('No tienes permisos para esta acción');
       return;
     }
 
     try {
-      const dias_incapacidad = calculateDays(formData.fecha_inicio, formData.fecha_fin);
-
-      const incapacidadData = {
-        numero_id: formData.numero_id,
-        nombre_completo: formData.nombre_completo,
-        fecha_inicio: formData.fecha_inicio,
-        fecha_fin: formData.fecha_fin,
-        dias_incapacidad,
-        diagnostico: formData.diagnostico,
-        tipo_incapacidad: formData.tipo_incapacidad,
-        prorroga: formData.prorroga,
+      const accidenteData = {
+        ...formData,
         created_by: user?.id || ''
       };
 
-      if (editingIncapacidad) {
+      if (editingAccidente) {
         const { error } = await supabase
-          .from('incapacidades')
-          .update(incapacidadData)
-          .eq('id', editingIncapacidad.id);
+          .from('accidentes_trabajo')
+          .update(accidenteData)
+          .eq('id', editingAccidente.id);
 
         if (error) throw error;
-        toast.success('Incapacidad actualizada exitosamente');
+        toast.success('Accidente de trabajo actualizado exitosamente');
       } else {
         const { error } = await supabase
-          .from('incapacidades')
-          .insert([incapacidadData]);
+          .from('accidentes_trabajo')
+          .insert([accidenteData]);
 
         if (error) throw error;
-        toast.success('Incapacidad creada exitosamente');
+        toast.success('Accidente de trabajo registrado exitosamente');
       }
 
       setShowModal(false);
-      setEditingIncapacidad(null);
+      setEditingAccidente(null);
       resetForm();
       loadData();
     } catch (error) {
-      console.error('Error saving incapacidad:', error);
-      toast.error('Error al guardar la incapacidad');
+      console.error('Error saving accidente:', error);
+      toast.error('Error al guardar el accidente de trabajo');
     }
   };
 
-  const handleEdit = (incapacidad: Incapacidad) => {
-    if (!hasPermission('incapacidades', 'update')) {
+  const handleEdit = (accidente: AccidenteTrabajo) => {
+    if (!hasPermission('accidentes_trabajo', 'update')) {
       toast.error('No tienes permisos para editar');
       return;
     }
 
-    setEditingIncapacidad(incapacidad);
+    setEditingAccidente(accidente);
     setFormData({
-      numero_id: incapacidad.numero_id,
-      nombre_completo: incapacidad.nombre_completo,
-      fecha_inicio: incapacidad.fecha_inicio,
-      fecha_fin: incapacidad.fecha_fin,
-      codigo_diagnostico: '',
-      diagnostico: incapacidad.diagnostico,
-      tipo_incapacidad: incapacidad.tipo_incapacidad,
-      prorroga: incapacidad.prorroga || 'No'
+      cedula: accidente.cedula,
+      nombre: accidente.nombre,
+      cargo: accidente.cargo,
+      dependencia: accidente.dependencia,
+      tipo_at: accidente.tipo_at,
+      tipo_lesion: accidente.tipo_lesion,
+      parte_cuerpo_afectada: accidente.parte_cuerpo_afectada,
+      fecha: accidente.fecha,
+      hora: accidente.hora
     });
     setShowModal(true);
   };
 
   const handleDelete = async (id: string) => {
-    if (!hasPermission('incapacidades', 'delete')) {
+    if (!hasPermission('accidentes_trabajo', 'delete')) {
       toast.error('No tienes permisos para eliminar');
       return;
     }
 
-    if (!confirm('¿Estás seguro de que deseas eliminar esta incapacidad?')) return;
+    if (!confirm('¿Estás seguro de que deseas eliminar este registro?')) return;
 
     try {
       const { error } = await supabase
-        .from('incapacidades')
+        .from('accidentes_trabajo')
         .delete()
         .eq('id', id);
 
       if (error) throw error;
-      toast.success('Incapacidad eliminada exitosamente');
+      toast.success('Accidente de trabajo eliminado exitosamente');
       loadData();
     } catch (error) {
-      console.error('Error deleting incapacidad:', error);
-      toast.error('Error al eliminar la incapacidad');
+      console.error('Error deleting accidente:', error);
+      toast.error('Error al eliminar el accidente de trabajo');
     }
   };
 
   const resetForm = () => {
     setFormData({
-      numero_id: '',
-      nombre_completo: '',
-      fecha_inicio: '',
-      fecha_fin: '',
-      codigo_diagnostico: '',
-      diagnostico: '',
-      tipo_incapacidad: '',
-      prorroga: 'No'
+      cedula: '',
+      nombre: '',
+      cargo: '',
+      dependencia: '',
+      tipo_at: '',
+      tipo_lesion: '',
+      parte_cuerpo_afectada: '',
+      fecha: '',
+      hora: ''
     });
   };
 
@@ -229,31 +225,32 @@ const Incapacidades: React.FC = () => {
     const dataToExport = getFilteredData();
     const ws = XLSX.utils.json_to_sheet(dataToExport);
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, 'Incapacidades');
+    XLSX.utils.book_append_sheet(wb, ws, 'AccidentesTrabajo');
     
     const fileName = startDate && endDate 
-      ? `incapacidades_${startDate}_${endDate}.xlsx`
-      : 'incapacidades.xlsx';
+      ? `accidentes_trabajo_${startDate}_${endDate}.xlsx`
+      : 'accidentes_trabajo.xlsx';
     
     XLSX.writeFile(wb, fileName);
     toast.success('Archivo exportado exitosamente');
   };
 
   const getFilteredData = () => {
-    return incapacidades.filter((incapacidad) => {
-      const matchesSearch = incapacidad.numero_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        incapacidad.nombre_completo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        incapacidad.diagnostico.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        incapacidad.tipo_incapacidad.toLowerCase().includes(searchTerm.toLowerCase());
+    return accidentes.filter(accidente => {
+      const matchesSearch = accidente.cedula.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        accidente.nombre.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        accidente.tipo_at.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        accidente.tipo_lesion.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        accidente.dependencia.toLowerCase().includes(searchTerm.toLowerCase());
 
-      const matchesDateRange = (!startDate || incapacidad.fecha_inicio >= startDate) &&
-        (!endDate || incapacidad.fecha_inicio <= endDate);
+      const matchesDateRange = (!startDate || accidente.fecha >= startDate) &&
+        (!endDate || accidente.fecha <= endDate);
 
       return matchesSearch && matchesDateRange;
     });
   };
 
-  const filteredIncapacidades = getFilteredData();
+  const filteredAccidentes = getFilteredData();
 
   if (loading) {
     return (
@@ -270,11 +267,11 @@ const Incapacidades: React.FC = () => {
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-gray-800 flex items-center">
-              <Heart className="mr-3 h-6 w-6 text-red-600" />
-              Gestión de Incapacidades
+              <AlertTriangle className="mr-3 h-6 w-6 text-red-600" />
+              Accidentes de Trabajo
             </h1>
             <p className="text-gray-600 mt-1">
-              Administra las incapacidades médicas del personal
+              Administra los registros de accidentes de trabajo
             </p>
           </div>
           <div className="mt-4 sm:mt-0 flex space-x-3">
@@ -285,17 +282,17 @@ const Incapacidades: React.FC = () => {
               <Download className="mr-2 h-4 w-4" />
               Exportar
             </button>
-            {hasPermission('incapacidades', 'create') && (
+            {hasPermission('accidentes_trabajo', 'create') && (
               <button
                 onClick={() => {
                   resetForm();
-                  setEditingIncapacidad(null);
+                  setEditingAccidente(null);
                   setShowModal(true);
                 }}
                 className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
               >
                 <Plus className="mr-2 h-4 w-4" />
-                Nueva Incapacidad
+                Nuevo Accidente
               </button>
             )}
           </div>
@@ -310,7 +307,7 @@ const Incapacidades: React.FC = () => {
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-5 w-5" />
               <input
                 type="text"
-                placeholder="Buscar por número ID, nombre, diagnóstico o tipo de incapacidad..."
+                placeholder="Buscar por cédula, nombre, tipo de AT o dependencia..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
@@ -376,19 +373,22 @@ const Incapacidades: React.FC = () => {
                   Personal
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Período
+                  Cargo
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Días
+                  Dependencia
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Diagnóstico
+                  Tipo AT
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Tipo
+                  Lesión
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Prórroga
+                  Parte Afectada
+                </th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  Fecha/Hora
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Acciones
@@ -396,57 +396,70 @@ const Incapacidades: React.FC = () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {filteredIncapacidades.map((incapacidad) => (
-                <tr key={incapacidad.id} className="hover:bg-gray-50">
+              {filteredAccidentes.map((accidente) => (
+                <tr key={accidente.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div>
-                      <div className="text-sm font-medium text-gray-900">
-                        {incapacidad.nombre_completo}
-                      </div>
-                      <div className="text-sm text-gray-500">
-                        ID: {incapacidad.numero_id}
+                    <div className="flex items-center">
+                      <User className="h-5 w-5 text-gray-400 mr-2" />
+                      <div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {accidente.nombre}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          CC: {accidente.cedula}
+                        </div>
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <div className="flex items-center space-x-1">
-                      <Calendar className="h-4 w-4 text-gray-400" />
-                      <span>{incapacidad.fecha_inicio} - {incapacidad.fecha_fin}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                    <span className="font-medium">{incapacidad.dias_incapacidad} días</span>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      {accidente.cargo}
+                    </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
-                      {incapacidad.diagnostico}
+                    <div className="flex items-center">
+                      <Building className="h-4 w-4 text-gray-400 mr-1" />
+                      <span className="text-sm text-gray-900">{accidente.dependencia}</span>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-orange-100 text-orange-800">
+                      {accidente.tipo_at}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
                     <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-800">
-                      {incapacidad.tipo_incapacidad}
+                      {accidente.tipo_lesion}
                     </span>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      incapacidad.prorroga === 'Sí' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'
-                    }`}>
-                      {incapacidad.prorroga || 'No'}
+                    <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      {accidente.parte_cuerpo_afectada}
                     </span>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                    <div className="flex items-center space-x-1">
+                      <Calendar className="h-4 w-4 text-gray-400" />
+                      <span>{new Date(accidente.fecha + 'T00:00:00').toLocaleDateString('es-ES')}</span>
+                    </div>
+                    <div className="flex items-center space-x-1 mt-1">
+                      <Clock className="h-4 w-4 text-gray-400" />
+                      <span>{accidente.hora}</span>
+                    </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex space-x-2">
-                      {hasPermission('incapacidades', 'update') && (
+                      {hasPermission('accidentes_trabajo', 'update') && (
                         <button
-                          onClick={() => handleEdit(incapacidad)}
+                          onClick={() => handleEdit(accidente)}
                           className="text-blue-600 hover:text-blue-900"
                         >
                           <Edit className="h-4 w-4" />
                         </button>
                       )}
-                      {hasPermission('incapacidades', 'delete') && (
+                      {hasPermission('accidentes_trabajo', 'delete') && (
                         <button
-                          onClick={() => handleDelete(incapacidad.id)}
+                          onClick={() => handleDelete(accidente.id)}
                           className="text-red-600 hover:text-red-900"
                         >
                           <Trash2 className="h-4 w-4" />
@@ -459,6 +472,12 @@ const Incapacidades: React.FC = () => {
             </tbody>
           </table>
         </div>
+        
+        {filteredAccidentes.length === 0 && (
+          <div className="text-center py-8 text-gray-500">
+            No se encontraron accidentes de trabajo que coincidan con los filtros aplicados
+          </div>
+        )}
       </div>
 
       {/* Modal */}
@@ -467,18 +486,18 @@ const Incapacidades: React.FC = () => {
           <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-6">
-                {editingIncapacidad ? 'Editar Incapacidad' : 'Nueva Incapacidad'}
+                {editingAccidente ? 'Editar Accidente de Trabajo' : 'Nuevo Accidente de Trabajo'}
               </h2>
               
               <form onSubmit={handleSubmit} className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Número de ID *
+                      Número de Cédula *
                     </label>
                     <input
                       type="text"
-                      value={formData.numero_id}
+                      value={formData.cedula}
                       onChange={(e) => handleCedulaChange(e.target.value)}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                       placeholder="Ingrese número de cédula"
@@ -492,8 +511,8 @@ const Incapacidades: React.FC = () => {
                     </label>
                     <input
                       type="text"
-                      value={formData.nombre_completo}
-                      onChange={(e) => setFormData({ ...formData, nombre_completo: e.target.value })}
+                      value={formData.nombre}
+                      onChange={(e) => setFormData({ ...formData, nombre: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                       placeholder="Se autocompleta con la cédula"
                       required
@@ -502,70 +521,44 @@ const Incapacidades: React.FC = () => {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Fecha Inicio *
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.fecha_inicio}
-                      onChange={(e) => setFormData({ ...formData, fecha_inicio: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Fecha Fin *
-                    </label>
-                    <input
-                      type="date"
-                      value={formData.fecha_fin}
-                      onChange={(e) => setFormData({ ...formData, fecha_fin: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                      required
-                    />
-                  </div>
-                  
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Código de Diagnóstico *
+                      Cargo *
                     </label>
                     <input
                       type="text"
-                      value={formData.codigo_diagnostico}
-                      onChange={(e) => handleCodigoChange(e.target.value)}
+                      value={formData.cargo}
+                      onChange={(e) => setFormData({ ...formData, cargo: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                      placeholder="Ej: A000"
+                      placeholder="Se autocompleta con la cédula"
                       required
                     />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Diagnóstico *
+                      Dependencia *
                     </label>
                     <input
                       type="text"
-                      value={formData.diagnostico}
-                      onChange={(e) => setFormData({ ...formData, diagnostico: e.target.value })}
+                      value={formData.dependencia}
+                      onChange={(e) => setFormData({ ...formData, dependencia: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                      placeholder="Se autocompleta con el código"
+                      placeholder="Se autocompleta con la cédula"
                       required
                     />
                   </div>
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Origen de Incapacidad *
+                      Tipo de AT *
                     </label>
                     <select
-                      value={formData.tipo_incapacidad}
-                      onChange={(e) => setFormData({ ...formData, tipo_incapacidad: e.target.value })}
+                      value={formData.tipo_at}
+                      onChange={(e) => setFormData({ ...formData, tipo_at: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                       required
                     >
-                      <option value="">Seleccionar origen</option>
-                      {tiposIncapacidad.map(tipo => (
+                      <option value="">Seleccionar tipo de AT</option>
+                      {tiposAT.map(tipo => (
                         <option key={tipo.id} value={tipo.nombre}>
                           {tipo.nombre}
                         </option>
@@ -575,37 +568,75 @@ const Incapacidades: React.FC = () => {
                   
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Prórroga *
+                      Tipo de Lesión *
                     </label>
                     <select
-                      value={formData.prorroga}
-                      onChange={(e) => setFormData({ ...formData, prorroga: e.target.value })}
+                      value={formData.tipo_lesion}
+                      onChange={(e) => setFormData({ ...formData, tipo_lesion: e.target.value })}
                       className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
                       required
                     >
-                      <option value="No">No</option>
-                      <option value="Sí">Sí</option>
+                      <option value="">Seleccionar tipo de lesión</option>
+                      {tiposLesion.map(tipo => (
+                        <option key={tipo.id} value={tipo.nombre}>
+                          {tipo.nombre}
+                        </option>
+                      ))}
                     </select>
                   </div>
-                </div>
-                
-                {formData.fecha_inicio && formData.fecha_fin && (
-                  <div className="bg-gray-50 p-4 rounded-lg">
-                    <p className="text-sm text-gray-600">
-                      Días de incapacidad calculados: {' '}
-                      <span className="font-medium text-gray-800">
-                        {calculateDays(formData.fecha_inicio, formData.fecha_fin)} días
-                      </span>
-                    </p>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Parte del Cuerpo Afectada *
+                    </label>
+                    <select
+                      value={formData.parte_cuerpo_afectada}
+                      onChange={(e) => setFormData({ ...formData, parte_cuerpo_afectada: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      required
+                    >
+                      <option value="">Seleccionar parte del cuerpo</option>
+                      {partesCuerpo.map(parte => (
+                        <option key={parte.id} value={parte.nombre}>
+                          {parte.nombre}
+                        </option>
+                      ))}
+                    </select>
                   </div>
-                )}
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Fecha del Accidente *
+                    </label>
+                    <input
+                      type="date"
+                      value={formData.fecha}
+                      onChange={(e) => setFormData({ ...formData, fecha: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Hora del Accidente *
+                    </label>
+                    <input
+                      type="time"
+                      value={formData.hora}
+                      onChange={(e) => setFormData({ ...formData, hora: e.target.value })}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                      required
+                    />
+                  </div>
+                </div>
                 
                 <div className="flex justify-end space-x-3 pt-4">
                   <button
                     type="button"
                     onClick={() => {
                       setShowModal(false);
-                      setEditingIncapacidad(null);
+                      setEditingAccidente(null);
                       resetForm();
                     }}
                     className="px-4 py-2 text-gray-700 bg-gray-200 rounded-lg hover:bg-gray-300 transition-colors duration-200"
@@ -616,7 +647,7 @@ const Incapacidades: React.FC = () => {
                     type="submit"
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors duration-200"
                   >
-                    {editingIncapacidad ? 'Actualizar' : 'Crear'} Incapacidad
+                    {editingAccidente ? 'Actualizar' : 'Registrar'} Accidente
                   </button>
                 </div>
               </form>
@@ -628,4 +659,4 @@ const Incapacidades: React.FC = () => {
   );
 };
 
-export default Incapacidades;
+export default AccidentesTrabajo;

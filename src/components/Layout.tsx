@@ -6,6 +6,7 @@ import {
   FileText,
   Heart,
   Stethoscope,
+  AlertTriangle,
   Users,
   Settings,
   LogOut,
@@ -52,6 +53,12 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       path: '/enfermeria',
       icon: Stethoscope,
       module: 'enfermeria'
+    },
+    {
+      name: 'Accidentes de Trabajo',
+      path: '/accidentes-trabajo',
+      icon: AlertTriangle,
+      module: 'accidentes_trabajo'
     }
   ];
 

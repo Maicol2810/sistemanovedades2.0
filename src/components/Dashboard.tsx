@@ -12,7 +12,7 @@ import {
   ArcElement
 } from 'chart.js';
 import { Bar, Doughnut } from 'react-chartjs-2';
-import { FileText, Heart, Stethoscope, Users, TrendingUp, Calendar } from 'lucide-react';
+import { FileText, Heart, Stethoscope, AlertTriangle, Users, TrendingUp, Calendar } from 'lucide-react';
 
 ChartJS.register(
   CategoryScale,
@@ -28,6 +28,7 @@ interface DashboardStats {
   totalNovedades: number;
   totalIncapacidades: number;
   totalEnfermeria: number;
+  totalAccidentesTrabajo: number;
   totalUsuarios: number;
 }
 
@@ -37,6 +38,7 @@ const Dashboard: React.FC = () => {
     totalNovedades: 0,
     totalIncapacidades: 0,
     totalEnfermeria: 0,
+    totalAccidentesTrabajo: 0,
     totalUsuarios: 0
   });
   const [loading, setLoading] = useState(true);
@@ -51,10 +53,11 @@ const Dashboard: React.FC = () => {
       setLoading(true);
 
       // Load stats
-      const [novedadesRes, incapacidadesRes, enfermeriaRes, usuariosRes] = await Promise.all([
+      const [novedadesRes, incapacidadesRes, enfermeriaRes, accidentesRes, usuariosRes] = await Promise.all([
         hasPermission('novedades', 'read') ? supabase.from('novedades').select('id', { count: 'exact' }) : { count: 0 },
         hasPermission('incapacidades', 'read') ? supabase.from('incapacidades').select('id', { count: 'exact' }) : { count: 0 },
         hasPermission('enfermeria', 'read') ? supabase.from('enfermeria').select('id', { count: 'exact' }) : { count: 0 },
+        hasPermission('accidentes_trabajo', 'read') ? supabase.from('accidentes_trabajo').select('id', { count: 'exact' }) : { count: 0 },
         user?.role === 'Admin' ? supabase.from('users').select('id', { count: 'exact' }) : { count: 0 }
       ]);
 
@@ -62,29 +65,33 @@ const Dashboard: React.FC = () => {
         totalNovedades: novedadesRes.count || 0,
         totalIncapacidades: incapacidadesRes.count || 0,
         totalEnfermeria: enfermeriaRes.count || 0,
+        totalAccidentesTrabajo: accidentesRes.count || 0,
         totalUsuarios: usuariosRes.count || 0
       });
 
       // Prepare chart data
       setChartData({
-        labels: ['Novedades', 'Incapacidades', 'Enfermería'],
+        labels: ['Novedades', 'Incapacidades', 'Enfermería', 'Accidentes AT'],
         datasets: [
           {
             label: 'Registros',
             data: [
               novedadesRes.count || 0,
               incapacidadesRes.count || 0,
-              enfermeriaRes.count || 0
+              enfermeriaRes.count || 0,
+              accidentesRes.count || 0
             ],
             backgroundColor: [
               'rgba(239, 68, 68, 0.8)',
               'rgba(245, 101, 101, 0.8)',
-              'rgba(248, 113, 113, 0.8)'
+              'rgba(248, 113, 113, 0.8)',
+              'rgba(251, 146, 60, 0.8)'
             ],
             borderColor: [
               'rgb(239, 68, 68)',
               'rgb(245, 101, 101)',
-              'rgb(248, 113, 113)'
+              'rgb(248, 113, 113)',
+              'rgb(251, 146, 60)'
             ],
             borderWidth: 1
           }
@@ -119,6 +126,13 @@ const Dashboard: React.FC = () => {
       icon: Stethoscope,
       color: 'bg-red-700',
       show: hasPermission('enfermeria', 'read')
+    },
+    {
+      title: 'Total Accidentes AT',
+      value: stats.totalAccidentesTrabajo,
+      icon: AlertTriangle,
+      color: 'bg-orange-600',
+      show: hasPermission('accidentes_trabajo', 'read')
     },
     {
       title: 'Total Usuarios',

@@ -8,6 +8,7 @@ import Dashboard from './components/Dashboard';
 import Novedades from './components/Novedades';
 import Incapacidades from './components/Incapacidades';
 import Enfermeria from './components/Enfermeria';
+import AccidentesTrabajo from './components/AccidentesTrabajo';
 import Usuarios from './components/Usuarios';
 import Configuracion from './components/Configuracion';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -70,6 +71,14 @@ function App() {
               <ProtectedRoute module="enfermeria" action="read">
                 <Layout>
                   <Enfermeria />
+                </Layout>
+              </ProtectedRoute>
+            } />
+            
+            <Route path="/accidentes-trabajo" element={
+              <ProtectedRoute module="accidentes_trabajo" action="read">
+                <Layout>
+                  <AccidentesTrabajo />
                 </Layout>
               </ProtectedRoute>
             } />

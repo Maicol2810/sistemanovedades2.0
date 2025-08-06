@@ -580,19 +580,6 @@ const Enfermeria: React.FC = () => {
                 
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Salida *
-                  </label>
-                  <select
-                    value={formData.salida}
-                    onChange={(e) => setFormData({ ...formData, salida: e.target.value })}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    required
-                  >
-                    <option value="No">No</option>
-                    <option value="Sí">Sí</option>
-                  </select>
-                </div>
-                
                 <div>
                  <label className="block text-sm font-medium text-gray-700 mb-2">
                    Fecha *
